@@ -15,12 +15,16 @@ from telegram.ext import (
 )
 
 
+# Load environment variables
 load_dotenv()
 
 TOKEN = os.environ.get("BOT_TOKEN")
 
 # Your Telegram ID
 ADMIN_ID = 1200652625
+
+
+print("BOT TOKEN LOADED:", TOKEN[:10] if TOKEN else "NO TOKEN")
 
 
 # FastAPI app for Render
@@ -34,6 +38,10 @@ def home():
     }
 
 
+# =========================
+# Telegram Commands
+# =========================
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
@@ -42,7 +50,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_message(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     user = update.message.from_user
 
@@ -54,37 +65,41 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         chat_id=ADMIN_ID,
         text=f"""
-📩 New Support Message
+📩 پیام جدید پشتیبانی
 
-Name:
+👤 Name:
 {user.first_name}
 
-Username:
+🔗 Username:
 @{user.username}
 
-User ID:
+🆔 User ID:
 {user.id}
 
 
-Message:
+💬 Message:
 
 {update.message.text}
 
 
-Reply:
+برای پاسخ:
 
-/reply {user.id} your message
+/reply {user.id} پیام شما
 """
     )
 
 
     await update.message.reply_text(
-        "پیام شما ارسال شد ✅"
+        "پیام شما ارسال شد ✅\n\n"
+        "پشتیبانی به زودی پاسخ خواهد داد."
     )
 
 
 
-async def reply_customer(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def reply_customer(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     if update.message.chat.id != ADMIN_ID:
         return
@@ -94,7 +109,9 @@ async def reply_customer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         user_id = int(context.args[0])
 
-        message = " ".join(context.args[1:])
+        message = " ".join(
+            context.args[1:]
+        )
 
 
         await context.bot.send_message(
@@ -108,25 +125,34 @@ async def reply_customer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
         await update.message.reply_text(
-            "ارسال شد ✅"
+            "پاسخ ارسال شد ✅"
         )
 
 
-    except:
+    except Exception:
 
         await update.message.reply_text(
-            "Format:\n/reply USER_ID message"
+            "فرمت صحیح:\n\n"
+            "/reply USER_ID message"
         )
 
 
 
-async def error_handler(update, context):
+async def error_handler(
+    update,
+    context
+):
 
     print(
-        f"Error: {context.error}"
+        "Telegram Error:",
+        context.error
     )
 
 
+
+# =========================
+# Telegram Bot Setup
+# =========================
 
 telegram_app = (
     Application
@@ -168,27 +194,50 @@ telegram_app.add_error_handler(
 
 async def run_bot():
 
+    print("Initializing Telegram bot...")
+
     await telegram_app.initialize()
 
     await telegram_app.start()
 
     await telegram_app.updater.start_polling()
 
+    print("Telegram polling started")
+
 
 
 def start_bot():
+
+    print("Starting Telegram bot thread...")
 
     loop = asyncio.new_event_loop()
 
     asyncio.set_event_loop(loop)
 
-    loop.run_until_complete(
-        run_bot()
-    )
+    try:
+
+        loop.run_until_complete(
+            run_bot()
+        )
+
+    except Exception as e:
+
+        print(
+            "BOT START ERROR:",
+            e
+        )
 
 
 
-Thread(
+# Start bot in background thread
+
+bot_thread = Thread(
     target=start_bot,
     daemon=True
-).start()
+)
+
+
+bot_thread.start()
+
+
+print("Telegram bot thread started")
