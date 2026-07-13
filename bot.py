@@ -1,47 +1,59 @@
 import os
+import asyncio
+from threading import Thread
+
+from dotenv import load_dotenv
+from fastapi import FastAPI
+
 from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
     MessageHandler,
-    filters,
-    ContextTypes
+    ContextTypes,
+    filters
 )
 
 
+load_dotenv()
+
 TOKEN = os.environ.get("BOT_TOKEN")
 
-# YOUR personal Telegram ID
+# Your Telegram ID
 ADMIN_ID = 1200652625
 
 
-# Stores users temporarily
-users = {}
+# FastAPI app for Render
+web_app = FastAPI()
+
+
+@web_app.get("/")
+def home():
+    return {
+        "status": "Farsidle Support Bot is running"
+    }
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
-        " به پشتیبانی فارسی دل خوش آمدی!\n\nنظر یا سوالی دارین لطفا پیامتون رو بنوسید:"
+        "به پشتیبانی فارسی دل خوش آمدید 🌱\n\n"
+        "لطفاً پیام خود را ارسال کنید."
     )
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user = update.message.from_user
-    chat_id = update.message.chat.id
-    text = update.message.text
+
+    # Ignore admin messages
+    if update.message.chat.id == ADMIN_ID:
+        return
 
 
-    # If message comes from customer
-    if chat_id != ADMIN_ID:
-
-        users[user.id] = user.id
-
-
-        await context.bot.send_message(
-            chat_id=ADMIN_ID,
-            text=f"""
+    await context.bot.send_message(
+        chat_id=ADMIN_ID,
+        text=f"""
 📩 New Support Message
 
 Name:
@@ -56,26 +68,19 @@ User ID:
 
 Message:
 
-{text}
+{update.message.text}
 
 
-Reply using:
- /reply USER_ID message
+Reply:
+
+/reply {user.id} your message
 """
-        )
+    )
 
 
-        await update.message.reply_text(
-            "پیام شما ارسال شد!"
-        )
-
-
-    # If message comes from you
-    else:
-
-        await update.message.reply_text(
-            "Use /reply USER_ID message to answer a customer."
-        )
+    await update.message.reply_text(
+        "پیام شما ارسال شد ✅"
+    )
 
 
 
@@ -87,47 +92,103 @@ async def reply_customer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
 
-        customer_id = int(context.args[0])
+        user_id = int(context.args[0])
 
         message = " ".join(context.args[1:])
 
 
         await context.bot.send_message(
-            chat_id=customer_id,
-            text=f"Support:\n\n{message}"
+            chat_id=user_id,
+            text=f"""
+پشتیبانی فارسی دل:
+
+{message}
+"""
         )
 
 
         await update.message.reply_text(
-            "Reply sent ✅"
+            "ارسال شد ✅"
         )
 
 
     except:
 
         await update.message.reply_text(
-            "Format:\n/reply USER_ID your message"
+            "Format:\n/reply USER_ID message"
         )
 
 
 
-app = Application.builder().token(TOKEN).build()
+async def error_handler(update, context):
+
+    print(
+        f"Error: {context.error}"
+    )
 
 
-app.add_handler(CommandHandler("start", start))
 
-app.add_handler(
-    CommandHandler("reply", reply_customer)
+telegram_app = (
+    Application
+    .builder()
+    .token(TOKEN)
+    .build()
 )
 
-app.add_handler(
+
+telegram_app.add_handler(
+    CommandHandler(
+        "start",
+        start
+    )
+)
+
+
+telegram_app.add_handler(
+    CommandHandler(
+        "reply",
+        reply_customer
+    )
+)
+
+
+telegram_app.add_handler(
     MessageHandler(
-        filters.TEXT,
+        filters.TEXT & ~filters.COMMAND,
         handle_message
     )
 )
 
 
-print("Support bot running...")
+telegram_app.add_error_handler(
+    error_handler
+)
 
-app.run_polling()
+
+
+async def run_bot():
+
+    await telegram_app.initialize()
+
+    await telegram_app.start()
+
+    await telegram_app.updater.start_polling()
+
+
+
+def start_bot():
+
+    loop = asyncio.new_event_loop()
+
+    asyncio.set_event_loop(loop)
+
+    loop.run_until_complete(
+        run_bot()
+    )
+
+
+
+Thread(
+    target=start_bot,
+    daemon=True
+).start()

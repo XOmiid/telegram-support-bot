@@ -1,0 +1,1 @@
+from bot import web_app
