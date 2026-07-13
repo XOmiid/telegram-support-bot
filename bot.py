@@ -1,6 +1,5 @@
 import os
 import asyncio
-from threading import Thread
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -15,19 +14,23 @@ from telegram.ext import (
 )
 
 
-# Load environment variables
 load_dotenv()
 
 TOKEN = os.environ.get("BOT_TOKEN")
 
-# Your Telegram ID
 ADMIN_ID = 1200652625
 
 
-print("BOT TOKEN LOADED:", TOKEN[:10] if TOKEN else "NO TOKEN")
+print(
+    "BOT TOKEN LOADED:",
+    TOKEN[:10] if TOKEN else "NO TOKEN"
+)
 
 
-# FastAPI app for Render
+# =========================
+# FastAPI
+# =========================
+
 web_app = FastAPI()
 
 
@@ -38,8 +41,9 @@ def home():
     }
 
 
+
 # =========================
-# Telegram Commands
+# Telegram handlers
 # =========================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -50,14 +54,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def handle_message(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user = update.message.from_user
 
-    # Ignore admin messages
+
     if update.message.chat.id == ADMIN_ID:
         return
 
@@ -70,36 +72,32 @@ async def handle_message(
 👤 Name:
 {user.first_name}
 
-🔗 Username:
+Username:
 @{user.username}
 
-🆔 User ID:
+User ID:
 {user.id}
 
 
-💬 Message:
+Message:
 
 {update.message.text}
 
 
-برای پاسخ:
+Reply:
 
-/reply {user.id} پیام شما
+/reply {user.id} your message
 """
     )
 
 
     await update.message.reply_text(
-        "پیام شما ارسال شد ✅\n\n"
-        "پشتیبانی به زودی پاسخ خواهد داد."
+        "پیام شما ارسال شد ✅"
     )
 
 
 
-async def reply_customer(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+async def reply_customer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if update.message.chat.id != ADMIN_ID:
         return
@@ -125,33 +123,20 @@ async def reply_customer(
 
 
         await update.message.reply_text(
-            "پاسخ ارسال شد ✅"
+            "ارسال شد ✅"
         )
 
 
-    except Exception:
+    except:
 
         await update.message.reply_text(
-            "فرمت صحیح:\n\n"
-            "/reply USER_ID message"
+            "Format:\n/reply USER_ID message"
         )
-
-
-
-async def error_handler(
-    update,
-    context
-):
-
-    print(
-        "Telegram Error:",
-        context.error
-    )
 
 
 
 # =========================
-# Telegram Bot Setup
+# Telegram application
 # =========================
 
 telegram_app = (
@@ -186,15 +171,15 @@ telegram_app.add_handler(
 )
 
 
-telegram_app.add_error_handler(
-    error_handler
-)
 
+# =========================
+# Start Telegram with FastAPI
+# =========================
 
+@web_app.on_event("startup")
+async def startup():
 
-async def run_bot():
-
-    print("Initializing Telegram bot...")
+    print("Starting Telegram bot...")
 
     await telegram_app.initialize()
 
@@ -206,38 +191,13 @@ async def run_bot():
 
 
 
-def start_bot():
+@web_app.on_event("shutdown")
+async def shutdown():
 
-    print("Starting Telegram bot thread...")
+    print("Stopping Telegram bot...")
 
-    loop = asyncio.new_event_loop()
+    await telegram_app.updater.stop()
 
-    asyncio.set_event_loop(loop)
+    await telegram_app.stop()
 
-    try:
-
-        loop.run_until_complete(
-            run_bot()
-        )
-
-    except Exception as e:
-
-        print(
-            "BOT START ERROR:",
-            e
-        )
-
-
-
-# Start bot in background thread
-
-bot_thread = Thread(
-    target=start_bot,
-    daemon=True
-)
-
-
-bot_thread.start()
-
-
-print("Telegram bot thread started")
+    await telegram_app.shutdown()
