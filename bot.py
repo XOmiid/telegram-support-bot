@@ -1,203 +1,125 @@
 import os
-import asyncio
-
-from dotenv import load_dotenv
-from fastapi import FastAPI
-
 from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
     MessageHandler,
     ContextTypes,
-    filters
+    filters,
 )
-
-
-load_dotenv()
 
 TOKEN = os.environ.get("BOT_TOKEN")
+ADMIN_ID = int(os.environ.get("ADMIN_ID"))
 
-ADMIN_ID = 1200652625
+users = {}
 
-
-print(
-    "BOT TOKEN LOADED:",
-    TOKEN[:10] if TOKEN else "NO TOKEN"
-)
-
-
-# =========================
-# FastAPI
-# =========================
-
-web_app = FastAPI()
-
-
-@web_app.get("/")
-def home():
-    return {
-        "status": "Farsidle Support Bot is running"
-    }
-
-
-
-# =========================
-# Telegram handlers
-# =========================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
     await update.message.reply_text(
-        "به پشتیبانی فارسی دل خوش آمدید 🌱\n\n"
+        "👋 به پشتیبانی فارسی دل خوش آمدید!\n\n"
         "لطفاً پیام خود را ارسال کنید."
     )
 
 
-
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    user = update.message.from_user
+    user = update.effective_user
+    chat_id = update.effective_chat.id
+    text = update.message.text
 
-
-    if update.message.chat.id == ADMIN_ID:
+    # Admin messages
+    if chat_id == ADMIN_ID:
+        await update.message.reply_text(
+            "برای پاسخ:\n\n"
+            "/reply USER_ID پیام"
+        )
         return
 
+    users[user.id] = True
+
+    username = f"@{user.username}" if user.username else "None"
 
     await context.bot.send_message(
         chat_id=ADMIN_ID,
         text=f"""
-📩 پیام جدید پشتیبانی
+📩 New Support Message
 
 👤 Name:
 {user.first_name}
 
-Username:
-@{user.username}
+🔗 Username:
+{username}
 
-User ID:
+🆔 User ID:
 {user.id}
 
+💬 Message:
 
-Message:
+{text}
 
-{update.message.text}
+------------------------
 
-
-Reply:
+Reply with:
 
 /reply {user.id} your message
 """
     )
 
-
     await update.message.reply_text(
-        "پیام شما ارسال شد ✅"
+        "✅ پیام شما ارسال شد.\n\n"
+        "پشتیبانی به زودی پاسخ خواهد داد."
     )
-
 
 
 async def reply_customer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    if update.message.chat.id != ADMIN_ID:
+    if update.effective_chat.id != ADMIN_ID:
         return
 
+    if len(context.args) < 2:
+        await update.message.reply_text(
+            "Usage:\n\n"
+            "/reply USER_ID message"
+        )
+        return
 
     try:
 
         user_id = int(context.args[0])
 
-        message = " ".join(
-            context.args[1:]
-        )
-
+        message = " ".join(context.args[1:])
 
         await context.bot.send_message(
             chat_id=user_id,
-            text=f"""
-پشتیبانی فارسی دل:
-
-{message}
-"""
+            text=f"💬 پشتیبانی فارسی دل\n\n{message}"
         )
 
+        await update.message.reply_text("✅ Reply sent.")
 
-        await update.message.reply_text(
-            "ارسال شد ✅"
+    except Exception as e:
+
+        await update.message.reply_text(str(e))
+
+
+def main():
+
+    app = Application.builder().token(TOKEN).build()
+
+    app.add_handler(CommandHandler("start", start))
+
+    app.add_handler(CommandHandler("reply", reply_customer))
+
+    app.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            handle_message,
         )
-
-
-    except:
-
-        await update.message.reply_text(
-            "Format:\n/reply USER_ID message"
-        )
-
-
-
-# =========================
-# Telegram application
-# =========================
-
-telegram_app = (
-    Application
-    .builder()
-    .token(TOKEN)
-    .build()
-)
-
-
-telegram_app.add_handler(
-    CommandHandler(
-        "start",
-        start
     )
-)
+
+    print("Support bot running...")
+
+    app.run_polling()
 
 
-telegram_app.add_handler(
-    CommandHandler(
-        "reply",
-        reply_customer
-    )
-)
-
-
-telegram_app.add_handler(
-    MessageHandler(
-        filters.TEXT & ~filters.COMMAND,
-        handle_message
-    )
-)
-
-
-
-# =========================
-# Start Telegram with FastAPI
-# =========================
-
-@web_app.on_event("startup")
-async def startup():
-
-    print("Starting Telegram bot...")
-
-    await telegram_app.initialize()
-
-    await telegram_app.start()
-
-    await telegram_app.updater.start_polling()
-
-    print("Telegram polling started")
-
-
-
-@web_app.on_event("shutdown")
-async def shutdown():
-
-    print("Stopping Telegram bot...")
-
-    await telegram_app.updater.stop()
-
-    await telegram_app.stop()
-
-    await telegram_app.shutdown()
+if __name__ == "__main__":
+    main()
