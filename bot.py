@@ -1,3 +1,4 @@
+import os
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -8,7 +9,7 @@ from telegram.ext import (
 )
 
 
-TOKEN = "8926809567:AAGyslm53nUJ5dKLWfC-UR13IUu5Jh8p9-I"
+TOKEN = os.environ.get("BOT_TOKEN")
 
 # YOUR personal Telegram ID
 ADMIN_ID = 1200652625
