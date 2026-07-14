@@ -9,7 +9,15 @@ from telegram.ext import (
 )
 
 TOKEN = os.environ.get("BOT_TOKEN")
-ADMIN_ID = int(os.environ.get("ADMIN_ID"))
+ADMIN_ID = os.environ.get("ADMIN_ID")
+
+if not TOKEN:
+    raise ValueError("BOT_TOKEN environment variable is missing.")
+
+if not ADMIN_ID:
+    raise ValueError("ADMIN_ID environment variable is missing.")
+
+ADMIN_ID = int(ADMIN_ID)
 
 users = {}
 
@@ -22,6 +30,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    if not update.message or not update.message.text:
+        return
 
     user = update.effective_user
     chat_id = update.effective_chat.id
@@ -98,17 +109,20 @@ async def reply_customer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
 
-        await update.message.reply_text(str(e))
+        await update.message.reply_text(f"Error: {e}")
 
 
 def main():
 
+    print("===================================")
+    print("🚀 Starting Farsidle Support Bot...")
+    print(f"👤 Admin ID: {ADMIN_ID}")
+    print("===================================")
+
     app = Application.builder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-
     app.add_handler(CommandHandler("reply", reply_customer))
-
     app.add_handler(
         MessageHandler(
             filters.TEXT & ~filters.COMMAND,
@@ -116,9 +130,11 @@ def main():
         )
     )
 
-    print("Support bot running...")
+    print("✅ Support bot is running...")
 
-    app.run_polling()
+    app.run_polling(
+        allowed_updates=Update.ALL_TYPES
+    )
 
 
 if __name__ == "__main__":
